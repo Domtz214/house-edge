@@ -1,0 +1,2 @@
+# Prediction (predict.py) uses the Python standard library only - nothing to install.
+# Training-only dependencies are pinned in training/requirements-train.txt.
