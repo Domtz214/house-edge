@@ -172,3 +172,58 @@ def size_probs(model, g):
     e = [math.exp(r - mx) for r in raw]
     s = sum(e)
     return [x / s for x in e]
+
+
+# ------------------------------------------------------------------ v6: surprise / episode features
+SURP_HL = 8.0
+_BMA_COLS = [2 + 0 * 16, 2 + 1 * 16, 2 + 3 * 16]   # BMA win prob at half-lives 6, 12, 60
+
+
+def _surprise_track(seq, feats_all, cmax):
+    """surp[c] = recency-weighted mean log-loss (ticks < c) of the BMA predictions."""
+    d = 0.5 ** (1.0 / SURP_HL)
+    acc = [0.0] * len(_BMA_COLS)
+    wsum = 0.0
+    out = {}
+    for c in range(1, cmax + 1):
+        t = c - 1
+        acc = [a * d for a in acc]
+        wsum *= d
+        v = seq.get(t)
+        if v is not None and t in feats_all:
+            f = feats_all[t][0]
+            for i, col in enumerate(_BMA_COLS):
+                p = f[col]
+                if p < 0:
+                    p = 0.5
+                p = min(max(p, 1e-3), 1 - 1e-3)
+                acc[i] += -math.log(p if v > 0 else 1 - p)
+            wsum += 1.0
+        out[c] = [a / wsum if wsum > 0 else -1.0 for a in acc] + [wsum]
+    return out
+
+
+def episode_features(machines, wanted):
+    """machines: {machine_id: (seq, mtype)} for ONE episode.
+    wanted: {machine_id: [cutoffs]}. Returns {(machine_id, cutoff): (win_feats, size_feats)}
+    with own + other-machine surprise features appended to win_feats."""
+    cmax = max(max(c) for c in wanted.values())
+    full, surp = {}, {}
+    for m, (seq, mt) in machines.items():
+        ticks = list(range(1, cmax + 1))
+        full[m] = machine_features(seq, ticks, mt)
+        surp[m] = _surprise_track(seq, full[m], cmax)
+    out = {}
+    for m, cuts in wanted.items():
+        others = [o for o in machines if o != m]
+        for c in cuts:
+            f, g = full[m][c]
+            own = surp[m][c]
+            oth = [surp[o][c] for o in others if surp[o][c][-1] > 0]
+            if oth:
+                om = [sum(x[i] for x in oth) / len(oth) for i in range(len(_BMA_COLS))]
+            else:
+                om = [-1.0] * len(_BMA_COLS)
+            extra = own[:-1] + om + [own[0] - own[2], (om[0] - om[2]) if oth else 0.0]
+            out[(m, c)] = (f + extra, g)
+    return out
