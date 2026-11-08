@@ -1,16 +1,20 @@
 # House Edge entry — v6 (lag-pair pattern features + surprise features + LightGBM, stdlib inference)
 
 ## Entry
-- Team ID: [FILL IN TEAM ID]
-- Round: main
+- Team name: ColorWICS
+- Round: main (round one)
 - Season ID: 5fffdc4d0c700bbf61c3f911
 - Forecast file: submission.csv
+- Forecast SHA-256: 39cb2555111f59dceac2b6e67a640f1c16a142020e3b0f984366f00ebd7b24dd
+- Code ZIP: entry.zip
 - Environment: `python` (Python 3.13, standard library only at prediction time)
 
 ## Setup
 - Runtime: Python 3.11+ (tested 3.13), Linux, CPU only, < 1 GB RAM
 - Prediction dependencies: Python standard library only.
-- Training dependencies (not needed to reproduce): numpy, lightgbm 4.x (deterministic=True, seed 0).
+- Dependencies: `requirements.txt` (empty - standard library only for prediction).
+- Training dependencies (not needed to reproduce the CSV): `training/requirements-train.txt`
+  (numpy 2.5.3, lightgbm 4.7.0; LightGBM deterministic=True, random_state=0).
 - Data: the round's `public/` folder, passed via `--data`.
 
 ## Recreate the forecast
@@ -23,7 +27,8 @@ python predict.py --data /data --out /output/submission.csv
 - Loads `win_model.json` and `size_model.json` (LightGBM trees exported with `dump_model()`),
   evaluated in pure Python by `features.py`. No training at run time, no randomness.
 - Measured runtime: well under a minute on one CPU core.
-- Training command (separate, local): `python research/train_v6.py --data public --entry my-entry-v6 --final`.
+- Training command (separate, optional; rewrites the two model JSON files deterministically):
+  `pip install -r training/requirements-train.txt && python training/train_v6.py --data /path/to/public --entry . --report /tmp/report --final`
 
 ## Method
 - Win chance: for each machine and each candidate lag pair (1,2), (1,3), (2,5), (4,7), a
